@@ -16,7 +16,7 @@ Maturity: 🟢 production · 🔵 built and tested, not yet in production · ⚪
 |---|---|---|
 | [`resilience/`](resilience/) | Timeout budget · retry with full jitter · circuit breaker · bulkhead · fallback · load shedding | 🔵 |
 | [`durable_workflow/`](durable_workflow/) | Step checkpointing, lease janitor, kill-mid-run resume test | 🔵 |
-| [`evaluation-harness/`](evaluation-harness/) | Golden sets across four scenario classes, tiered gates, CI verdict, prod-failure → regression | 🔵 dependency-free port of the 🟢 Promptfoo-backed service |
+| [`evaluation-harness/`](evaluation-harness/) | Golden sets across four scenario classes, tiered gates, CI verdict, prod-failure → regression — plus [**how the production service wraps Promptfoo**](evaluation-harness/PROMPTFOO.md) | 🟢 doc + 🔵 port |
 | [`governance-layer/`](governance-layer/) | Tenant-scoped retrieval, PII scrubbing, guardrails, tamper-evident audit log | 🟢 |
 | [`gateway/`](gateway/) | Kong declarative config · Cloudflare AI Gateway wiring | 🔵 |
 | [`k8s/`](k8s/) | Probes, autoscaling on queue depth, disruption budgets, graceful drain | 🔵 |
@@ -56,7 +56,9 @@ Rows 1–8 make it **reliable**. Rows 9–12 make it **explainable and safe**.
 ## Evaluation — stopping silent regression  🟢
 
 An agent-agnostic evaluation service built on **Promptfoo**. It treats every agent as a black box
-over HTTP, so one harness covers all of them.
+over HTTP, so one harness covers all of them. The integration is documented in full in
+[**evaluation-harness/PROMPTFOO.md**](evaluation-harness/PROMPTFOO.md) — provider setup, assertions
+derived from agent config, tier mapping, the CI contract, and what we removed after running it.
 
 ### Four dataset classes
 

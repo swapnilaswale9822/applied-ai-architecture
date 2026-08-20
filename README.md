@@ -44,7 +44,7 @@ pattern that handles it, and where it lives. Below it, working implementations:
 |---|---|
 | [`resilience/`](reliability/resilience/) | Timeout budget · retry with full jitter · circuit breaker on rolling error rate · bulkhead · fallback chain · load shedding |
 | [`durable_workflow/`](reliability/durable_workflow/) | Step checkpointing with a kill-the-worker-mid-run resume test |
-| [`evaluation-harness/`](reliability/evaluation-harness/) | Four scenario classes, tiered quality gates, CI verdict, production failure → permanent regression |
+| [`evaluation-harness/`](reliability/evaluation-harness/) | Four scenario classes, tiered quality gates, CI verdict, production failure → permanent regression — and [how the production service wraps **Promptfoo**](reliability/evaluation-harness/PROMPTFOO.md) |
 | [`governance-layer/`](reliability/governance-layer/) | Tenant-scoped retrieval, PII scrubbing, guardrails, tamper-evident audit log |
 | [`gateway/`](reliability/gateway/) · [`k8s/`](reliability/k8s/) | Kong + Cloudflare AI Gateway configs · probes, autoscaling on queue depth, graceful drain |
 
