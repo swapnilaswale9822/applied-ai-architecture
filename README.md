@@ -1,25 +1,58 @@
 # Applied AI Architecture — Swapnil Aswale
 
 Architecture and design notes from production AI systems I have built: a multi-tenant agent
-platform, and the agents and pipelines running on top of it.
+platform, and the agents, pipelines and reliability tooling that run on it.
 
-No proprietary code or client names — this covers **architecture, system design, technologies,
-my contribution, and technical approach**.
+No proprietary code and no client names — this covers **architecture, system design,
+technologies used, my role and contribution, and technical approach**.
 
 📧 swapnila302@gmail.com
 
 ---
 
-## Contents
+## Start here
 
-| # | Project | What it is |
-|---|---|---|
-| 1 | [Agent Platform](01-agent-platform.md) | Multi-tenant platform for building, running and governing AI agents. Used by 100+ organisations. |
-| 2 | [IT Support Agent](02-it-support-agent.md) | L1 support agent on Slack + Freshdesk. ~50% ticket deflection, 92% KB-hit rate. |
-| 3 | [Invoice → ERP Automation](03-invoice-to-erp.md) | AP invoices to SAP-ready output for a large pharma manufacturer. On-prem model, no external API calls. |
-| 4 | [Compliance-Gated Content Engine](04-content-compliance.md) | Growth platform for regulated wellness brands. ~10× content throughput at flat headcount; hallucination control built as retrieval, not prompting. |
-| 5 | [Evaluation & Reliability](05-evaluation-and-reliability.md) | How I keep these systems from silently degrading: eval gates, resilience patterns, observability. |
-| 6 | [AI Development Lifecycle](06-ai-development-lifecycle.md) | A governance framework I designed and rolled out so a team could use AI coding assistants without losing traceability. |
+| | |
+|---|---|
+| [**How I work**](HOW_I_WORK.md) | Engineering principles, each with the decision in this repo that demonstrates it — and what it cost |
+| [**The platform**](platform/) | A multi-tenant agent platform used by 100+ organisations: [architecture](platform/architecture.md) · [one run end to end](platform/runtime-sequence.md) · [decision records](platform/decisions/) |
+| [**Case studies**](case-studies/) | Three systems shipped under real constraints |
+| [**Reliability**](reliability/) | The last mile: what breaks, the patterns that handle it, and working code with 96 tests |
+
+---
+
+## Case studies
+
+| | What it is |
+|---|---|
+| [IT support deflection](case-studies/01-it-support-deflection.md) | L1 support agent on Slack and Freshdesk. **~50% ticket deflection, 92% KB-hit rate.** The engineering is the decision gate — deciding when *not* to answer. |
+| [Invoice → ERP grounding](case-studies/02-invoice-to-erp-grounding.md) | AP invoices to SAP-ready output for a large pharma manufacturer, on a private on-premise model. Grounded against structured master data, not document vector search. |
+| [Compliance-gated content](case-studies/03-compliance-gated-content.md) | Growth platform for regulated wellness brands. **~10× content throughput at flat headcount**, with hallucination control built as retrieval rather than prompting. |
+
+And the framework I designed for how a team builds *with* AI:
+[AI Development Lifecycle](platform/ai-development-lifecycle.md) — seven phases, a risk-tiered
+approval matrix, and an explicit list of what AI is never permitted to do.
+
+---
+
+## Reliability — the part that is running code
+
+[`reliability/`](reliability/) opens with a twelve-row failure taxonomy: what breaks, the
+pattern that handles it, and where it lives. Below it, working implementations:
+
+| | |
+|---|---|
+| [`resilience/`](reliability/resilience/) | Timeout budget · retry with full jitter · circuit breaker on rolling error rate · bulkhead · fallback chain · load shedding |
+| [`durable_workflow/`](reliability/durable_workflow/) | Step checkpointing with a kill-the-worker-mid-run resume test |
+| [`evaluation-harness/`](reliability/evaluation-harness/) | Four scenario classes, tiered quality gates, CI verdict, production failure → permanent regression |
+| [`governance-layer/`](reliability/governance-layer/) | Tenant-scoped retrieval, PII scrubbing, guardrails, tamper-evident audit log |
+| [`gateway/`](reliability/gateway/) · [`k8s/`](reliability/k8s/) | Kong + Cloudflare AI Gateway configs · probes, autoscaling on queue depth, graceful drain |
+
+```bash
+cd reliability && python3 -m pytest      # 96 tests, no external dependencies
+```
+
+Every test induces the failure it is about rather than asserting a happy path.
 
 ---
 
@@ -33,7 +66,7 @@ my contribution, and technical approach**.
 | **Backend** | FastAPI, Celery, Redis, Gunicorn, REST + webhooks |
 | **Data** | PostgreSQL, Alembic migrations, multi-tenant schema design |
 | **Frontend** | React 18, TypeScript, Vite, Tailwind, ReactFlow (visual workflow builder) |
-| **Evaluation** | Promptfoo, LLM-as-judge, CI quality gates |
+| **Evaluation** | Promptfoo, LLM-as-judge, tiered CI quality gates |
 | **Observability** | OpenTelemetry + OpenInference (works with Phoenix / Langfuse / Braintrust) |
 | **Infra** | Docker, Docker Compose, Kubernetes, Kong, Cloudflare AI Gateway, Azure, nginx |
 
@@ -41,30 +74,14 @@ my contribution, and technical approach**.
 
 ## Maturity labels
 
-Every component in these documents is labelled, so it is clear what carries live traffic and
-what is designed and built but not yet deployed.
+Every component is labelled, so it is clear what carries live traffic and what is built or
+designed but not deployed.
 
 | | Meaning |
 |---|---|
 | 🟢 **Production** | Running in a live multi-tenant system with real traffic |
-| 🔵 **Reference implementation** | Built and runnable, with tests — not yet in production |
+| 🔵 **Built and tested** | Runnable here with tests — not yet in production |
 | ⚪ **Design** | Architecture and migration plan documented, not built |
 
----
-
-## How I approach this work
-
-**Ship the boring version first.** Production today runs on Docker Compose and Celery rather
-than Kubernetes, because at current tenant count the operational cost was not justified. The
-migration is designed and the trigger is written down.
-
-**Decide what AI is not allowed to do.** In the invoice system, GL account selection is
-deliberately manual — it is accounting judgement, not extraction. Knowing where to stop is
-most of the design.
-
-**Make failure detectable rather than impossible.** Hallucination is not eliminated; it is
-grounded, checked, bounded, and cheap to fail on. The real design question is what the system
-does when it does not know — guessing is the bug.
-
-**Write the decision down.** Architecture decisions live in the repo with their trade-offs and
-what I would revisit at 10x scale.
+Labelling maturity is not modesty. A document where everything is implied production
+collapses under one probing question, and takes the true claims down with it.

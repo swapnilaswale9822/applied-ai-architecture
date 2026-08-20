@@ -10,6 +10,28 @@ Maturity: 🟢 production · 🔵 built and tested, not yet in production · ⚪
 
 ---
 
+## What is in this directory
+
+| | | |
+|---|---|---|
+| [`resilience/`](resilience/) | Timeout budget · retry with full jitter · circuit breaker · bulkhead · fallback · load shedding | 🔵 |
+| [`durable_workflow/`](durable_workflow/) | Step checkpointing, lease janitor, kill-mid-run resume test | 🔵 |
+| [`evaluation-harness/`](evaluation-harness/) | Golden sets across four scenario classes, tiered gates, CI verdict, prod-failure → regression | 🟢 (mirrors the production service) |
+| [`governance-layer/`](governance-layer/) | Tenant-scoped retrieval, PII scrubbing, guardrails, tamper-evident audit log | 🟢 |
+| [`gateway/`](gateway/) | Kong declarative config · Cloudflare AI Gateway wiring | 🔵 |
+| [`k8s/`](k8s/) | Probes, autoscaling on queue depth, disruption budgets, graceful drain | 🔵 |
+
+```bash
+cd reliability && python3 -m pytest      # 96 tests, no external dependencies
+```
+
+Every test induces the failure it is about: the breaker is driven open and probed, a worker
+is killed mid-run, an injection is fired at the guardrail, an audit entry is tampered with.
+A guardrail verified once by hand is a guardrail that quietly stops working on the next
+prompt change.
+
+---
+
 ## Failure taxonomy
 
 | # | What breaks | Pattern | |
@@ -17,11 +39,11 @@ Maturity: 🟢 production · 🔵 built and tested, not yet in production · ⚪
 | 1 | Slow LLM call blocks the request thread | Async job queue — accept, enqueue, return `202`; nothing long-running on the request path | 🟢 |
 | 2 | Worker pool saturates, queue grows unbounded | Routed queues per workload class, tuned concurrency, backpressure → `429` | 🟢 |
 | 3 | Transient provider error (429 / 503 / timeout) | Bounded retry, exponential backoff, **full jitter**, idempotency keys | 🟢 |
-| 4 | Provider hard-down → every worker retries → cascade | **Circuit breaker** + fallback model route + load shedding | ⚪ |
+| 4 | Provider hard-down → every worker retries → cascade | **Circuit breaker** + fallback model route + load shedding | 🔵 |
 | 5 | One heavy tenant starves interactive traffic | **Bulkhead** — separate queues and worker pools per class | 🟢 |
-| 6 | Token spend and latency invisible until the invoice | **AI gateway** — central metering, semantic cache, token-based limits, failover | ⚪ |
-| 7 | No horizontal scale; deploys drop in-flight work | **Kubernetes** — probes, HPA on queue depth, PDB, graceful drain | ⚪ |
-| 8 | Long workflow dies mid-run; restart redoes everything | **Step checkpointing** → resumable state machine | ⚪ |
+| 6 | Token spend and latency invisible until the invoice | **AI gateway** — central metering, semantic cache, token-based limits, failover | 🔵 |
+| 7 | No horizontal scale; deploys drop in-flight work | **Kubernetes** — probes, HPA on queue depth, PDB, graceful drain | 🔵 |
+| 8 | Long workflow dies mid-run; restart redoes everything | **Step checkpointing** → resumable state machine | 🔵 |
 | 9 | Model invents facts | Grounding, groundedness judge, allow-lists, abstain path | 🟢 |
 | 10 | Prompt change silently degrades quality | **Promptfoo eval suite + tiered CI gates + prod-failure → regression** | 🟢 |
 | 11 | "Why did it answer that?" | OTel spans: prompt version, retrieved chunk IDs, tool calls, tokens, latency + audit log | 🟢 |
@@ -93,11 +115,11 @@ traffic — bulkhead isolation at the infrastructure level.
 
 Runs on Docker Compose with Gunicorn multi-worker, tuned per service.
 
-### Kubernetes  ⚪
+### Kubernetes  🔵
 
 Production has not migrated, because at current tenant count the operational cost is not
-justified by the scaling benefit. The migration is designed, with the trigger condition written
-down:
+justified by the scaling benefit. The manifests are written and validated —
+[`k8s/`](k8s/) — with the trigger condition written down:
 
 - **Readiness probes that check dependencies** — database and broker reachable, not `return 200`.
   A probe that always passes is worse than no probe: it removes the signal while looking healthy.
@@ -110,10 +132,11 @@ down:
 
 ---
 
-## Resilience patterns  ⚪
+## Resilience patterns  🔵
 
-The patterns below are how I would harden the LLM call path, and the design detail that makes
-each one work in practice rather than on a slide.
+A dependency-free library in [`resilience/`](resilience/) — one module per pattern, each
+tested by **inducing the failure it exists to handle** rather than asserting a happy path.
+Clocks, sleeps and randomness are injectable, so the whole suite runs in milliseconds.
 
 | Pattern | Detail that matters |
 |---|---|
@@ -137,10 +160,13 @@ fails schema validation, not blindly on any error, or you retry your way into in
 
 ---
 
-## Gateways  ⚪
+## Gateways  🔵
 
 Cross-cutting LLM concerns — caching, metering, rate limits, failover — belong in a gateway.
-Implementing them in application code means re-implementing them in every service.
+Implementing them in application code means re-implementing them in every service, slightly
+differently, and discovering the differences during an incident.
+
+Configs and client wiring: [`gateway/kong/`](gateway/kong/) · [`gateway/ai-gateway/`](gateway/ai-gateway/)
 
 ### Kong — inbound, tenant-facing policy
 
@@ -172,10 +198,10 @@ Adopting them before that is architecture for its own sake.
 
 ---
 
-## Durable workflow state  ⚪
+## Durable workflow state  🔵
 
-Long multi-step workflows currently restart from the beginning if a worker dies mid-run. The
-design that fixes it:
+Long multi-step workflows currently restart from the beginning if a worker dies mid-run.
+Built and tested in [`durable_workflow/`](durable_workflow/):
 
 ```
 workflow_run       id · definition_version · status · current_step · tenant_id
@@ -187,8 +213,8 @@ workflow_step_run  run_id · step_key · attempt · status · input_hash · outp
   crash between the two is impossible.
 - Idempotency key per step, so a crash mid-write cannot double-apply an external effect.
 - A janitor sweeps runs whose lease expired and re-drives them from the last checkpoint.
-- Verified by killing a worker mid-run and asserting the resume skips completed steps — that
-  test is the acceptance criterion for the whole design.
+- The acceptance test **kills a worker mid-run and asserts the resume skips completed steps**
+  and re-runs only the unfinished tail.
 
 **Why checkpointing rather than a replay engine like Temporal:** replay requires step code to be
 deterministic, which is a real constraint to hold across a team. Checkpointing works with the

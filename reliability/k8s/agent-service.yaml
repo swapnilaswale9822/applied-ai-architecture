@@ -1,0 +1,95 @@
+# Latency-critical API tier. Scales on CPU, because it is CPU-bound between LLM calls.
+# The worker tier does NOT scale this way — see worker.yaml.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agent-service
+  labels: {app: agent-service, tier: api}
+spec:
+  replicas: 3
+  selector:
+    matchLabels: {app: agent-service}
+  template:
+    metadata:
+      labels: {app: agent-service, tier: api}
+    spec:
+      # Long LLM calls must finish rather than be cut off mid-response on a rolling deploy.
+      terminationGracePeriodSeconds: 90
+      containers:
+        - name: api
+          image: agent-service:latest
+          ports: [{containerPort: 8005, name: http}]
+          env:
+            - name: GUNICORN_WORKERS
+              value: "4"
+          resources:
+            requests: {cpu: "500m", memory: "512Mi"}
+            # No CPU limit: throttling a latency-critical service to enforce a number
+            # nobody is billing for trades real user latency for a tidy graph.
+            # The memory limit stays — unbounded memory is an eviction risk for neighbours.
+            limits: {memory: "1Gi"}
+
+          # Readiness checks real dependencies. A probe that returns 200 unconditionally is
+          # worse than none: it removes the signal while looking healthy, so traffic keeps
+          # arriving at a pod that cannot serve it.
+          readinessProbe:
+            httpGet: {path: /health/ready, port: http}
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 2
+
+          # Liveness is deliberately shallow and slower. If it checked dependencies too, a
+          # database blip would restart every pod at once — turning a degradation into an
+          # outage.
+          livenessProbe:
+            httpGet: {path: /health/live, port: http}
+            initialDelaySeconds: 20
+            periodSeconds: 20
+            failureThreshold: 3
+
+          # Slow starts (model warm-up, index load) are handled here rather than by
+          # inflating initialDelaySeconds on the liveness probe.
+          startupProbe:
+            httpGet: {path: /health/live, port: http}
+            periodSeconds: 5
+            failureThreshold: 30
+
+          lifecycle:
+            preStop:
+              # Let the endpoints controller deregister this pod before the server begins
+              # shutting down, or in-flight requests are dropped during a rollout.
+              exec: {command: ["sleep", "5"]}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: agent-service
+spec:
+  selector: {app: agent-service}
+  ports: [{port: 8005, targetPort: http, name: http}]
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: agent-service
+spec:
+  scaleTargetRef: {apiVersion: apps/v1, kind: Deployment, name: agent-service}
+  minReplicas: 3
+  maxReplicas: 20
+  metrics:
+    - type: Resource
+      resource: {name: cpu, target: {type: Utilization, averageUtilization: 70}}
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 30      # react quickly to a burst
+    scaleDown:
+      stabilizationWindowSeconds: 300     # ...and slowly to its end, to avoid flapping
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: agent-service
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels: {app: agent-service}

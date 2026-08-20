@@ -1,0 +1,73 @@
+# Celery workers. The scaling signal here is queue depth, NOT CPU.
+#
+# A worker waiting on a 30-second LLM response is idle on CPU while the backlog grows, so
+# CPU-based autoscaling scales *down* at exactly the moment it should scale up. Queue depth
+# is the load signal that matches the workload.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agent-worker
+  labels: {app: agent-worker, tier: worker}
+spec:
+  replicas: 2
+  selector:
+    matchLabels: {app: agent-worker}
+  template:
+    metadata:
+      labels: {app: agent-worker, tier: worker}
+    spec:
+      # Must exceed the longest task, or a rolling deploy kills work mid-run. With
+      # checkpointing (../durable_workflow/) that is recoverable; without it, it is lost.
+      terminationGracePeriodSeconds: 300
+      containers:
+        - name: worker
+          image: agent-service:latest
+          # Bulkhead: this deployment consumes only its own queues. A separate deployment
+          # serves 'ingest', so a bulk upload cannot starve interactive traffic.
+          command: ["celery", "-A", "app.celery", "worker",
+                    "-Q", "agent,interactive", "--concurrency", "4",
+                    "--max-tasks-per-child", "100"]   # bounds slow memory growth
+          resources:
+            requests: {cpu: "250m", memory: "512Mi"}
+            limits: {memory: "2Gi"}
+          # No HTTP server, so readiness is a real broker check, not a port probe.
+          readinessProbe:
+            exec: {command: ["celery", "-A", "app.celery", "inspect", "ping", "-d",
+                             "celery@$(hostname)"]}
+            initialDelaySeconds: 15
+            periodSeconds: 30
+            timeoutSeconds: 10
+          lifecycle:
+            preStop:
+              # Warm shutdown: stop accepting, finish what is in flight.
+              exec: {command: ["sh", "-c", "kill -TERM 1 && sleep 30"]}
+---
+# KEDA scales on the actual Redis queue length. Plain HPA cannot read a broker; wiring the
+# same signal through custom metrics is possible but is more moving parts for less.
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: agent-worker
+spec:
+  scaleTargetRef: {name: agent-worker}
+  minReplicaCount: 2          # never zero: cold start would add latency to the first task
+  maxReplicaCount: 30
+  pollingInterval: 15
+  cooldownPeriod: 300
+  triggers:
+    - type: redis
+      metadata:
+        address: redis:6379
+        listName: agent
+        # One replica per 20 queued tasks. Derived from measured throughput, not guessed:
+        # if a task averages 3s and 4 run concurrently, a replica drains ~80/minute.
+        listLength: "20"
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: agent-worker
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels: {app: agent-worker}

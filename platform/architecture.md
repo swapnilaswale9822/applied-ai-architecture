@@ -125,7 +125,7 @@ human approval gates.
 
 **Honest limits:** it is a graph compiler over sequential primitives, not a true DAG scheduler,
 and runs are not currently resumable mid-execution. The durable-execution design (step
-checkpointing) is written up in [Evaluation & Reliability](05-evaluation-and-reliability.md).
+checkpointing) is written up in [Reliability](../reliability/) and [ADR 002](decisions/002-celery-redis-over-temporal.md).
 
 ---
 

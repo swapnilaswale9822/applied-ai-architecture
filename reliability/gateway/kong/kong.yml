@@ -1,0 +1,125 @@
+# Kong declarative (DB-less) configuration.
+#
+# Kong sits in front of the platform's own services: authentication, per-tenant quotas,
+# request shaping, and correlation IDs that flow into tracing. The AI plugins add the
+# LLM-specific controls that generic API gateways do not have.
+#
+# Run:  docker compose up -d   (see docker-compose.yml in this directory)
+_format_version: "3.0"
+_transform: true
+
+consumers:
+  - username: tenant-acme
+    keyauth_credentials:
+      - key: demo-key-acme
+  - username: tenant-globex
+    keyauth_credentials:
+      - key: demo-key-globex
+
+services:
+  # ---- platform APIs -------------------------------------------------------
+  - name: agent-service
+    url: http://agent-service:8005
+    retries: 0                    # retries belong in the app, next to the circuit breaker
+    connect_timeout: 2000
+    write_timeout: 60000
+    read_timeout: 60000
+    routes:
+      - name: agent-route
+        paths: ["/api/agent"]
+        strip_path: true
+    plugins:
+      - name: key-auth
+        config:
+          key_names: ["x-api-key"]
+          hide_credentials: true
+
+      # Per-consumer quotas, not a global ceiling: one tenant's burst must not consume
+      # another tenant's allowance.
+      - name: rate-limiting
+        config:
+          minute: 120
+          hour: 5000
+          policy: redis
+          redis_host: redis
+          limit_by: consumer
+          fault_tolerant: true    # a Redis outage must not take the whole API down
+
+      - name: request-size-limiting
+        config:
+          allowed_payload_size: 8   # MB
+
+      # Propagates a trace id into the services, so a gateway log line and an OTel span
+      # can be joined without guesswork.
+      - name: correlation-id
+        config:
+          header_name: x-correlation-id
+          generator: uuid
+          echo_downstream: true
+
+      - name: prometheus
+        config:
+          status_code_metrics: true
+          latency_metrics: true
+
+  # ---- LLM egress ----------------------------------------------------------
+  - name: llm-egress
+    url: http://placeholder            # ai-proxy rewrites the upstream
+    routes:
+      - name: llm-route
+        paths: ["/api/llm"]
+        strip_path: true
+    plugins:
+      # Provider abstraction: swapping models is configuration, not a code change.
+      - name: ai-proxy
+        config:
+          route_type: llm/v1/chat
+          auth:
+            header_name: Authorization
+            header_value: "Bearer ${ANTHROPIC_API_KEY}"
+          model:
+            provider: anthropic
+            name: claude-sonnet-4-6
+            options:
+              max_tokens: 2048
+
+      # Limit TOKENS, not requests. One request can be 200 tokens or 200,000 — a
+      # requests-per-minute cap does not protect a budget, it only looks like it does.
+      - name: ai-rate-limiting-advanced
+        config:
+          llm_providers:
+            - name: anthropic
+              limit: [200000]
+              window_size: [3600]
+          strategy: redis
+          redis:
+            host: redis
+          limit_by: consumer
+
+      # Cheap, deterministic deny-list at the edge. Not a substitute for in-app guardrails
+      # — it cannot see intent — but it stops the obvious traffic before it costs a token.
+      - name: ai-prompt-guard
+        config:
+          deny_patterns:
+            - "(?i)ignore\\s+(all\\s+)?(previous|prior)\\s+instructions"
+            - "(?i)reveal\\s+(your\\s+)?system\\s+prompt"
+
+      # Semantic cache, not exact-match. Exact matching almost never hits on natural
+      # language. Similarity matching hits far more often — at the cost of a real
+      # correctness risk when two similar prompts need different answers, which is why
+      # the threshold is a deliberate tuning decision rather than a default.
+      - name: ai-semantic-cache
+        config:
+          embeddings:
+            provider: openai
+            name: text-embedding-3-small
+          vectordb:
+            strategy: redis
+            distance_metric: cosine
+            threshold: 0.92
+          cache_ttl: 3600
+
+plugins:
+  - name: prometheus
+    config:
+      status_code_metrics: true
