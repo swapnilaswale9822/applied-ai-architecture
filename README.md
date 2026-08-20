@@ -17,7 +17,7 @@ my contribution, and technical approach**.
 | 1 | [Agent Platform](01-agent-platform.md) | Multi-tenant platform for building, running and governing AI agents. Used by 100+ organisations. |
 | 2 | [IT Support Agent](02-it-support-agent.md) | L1 support agent on Slack + Freshdesk. ~50% ticket deflection, 92% KB-hit rate. |
 | 3 | [Invoice → ERP Automation](03-invoice-to-erp.md) | AP invoices to SAP-ready output for a large pharma manufacturer. On-prem model, no external API calls. |
-| 4 | [Compliance-Gated Content](04-content-compliance.md) | Content generation for a regulated health category — nothing publishes without passing an approved-claims gate. |
+| 4 | [Compliance-Gated Content Engine](04-content-compliance.md) | Growth platform for regulated wellness brands. ~10× content throughput at flat headcount; hallucination control built as retrieval, not prompting. |
 | 5 | [Evaluation & Reliability](05-evaluation-and-reliability.md) | How I keep these systems from silently degrading: eval gates, resilience patterns, observability. |
 | 6 | [AI Development Lifecycle](06-ai-development-lifecycle.md) | A governance framework I designed and rolled out so a team could use AI coding assistants without losing traceability. |
 
