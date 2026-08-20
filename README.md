@@ -6,7 +6,7 @@ platform, and the agents, pipelines and reliability tooling that run on it.
 No proprietary code and no client names — this covers **architecture, system design,
 technologies used, my role and contribution, and technical approach**.
 
-📧 swapnila302@gmail.com
+📧 swapnilaswale@hotmail.com
 
 ---
 
