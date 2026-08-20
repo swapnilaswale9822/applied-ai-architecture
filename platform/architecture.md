@@ -4,7 +4,7 @@ A platform for building, running and governing AI agents. Non-engineers configur
 knowledge, tools, guardrails, workflow — through a studio UI; the platform compiles that into a
 running agent with retrieval, tool access, evaluation and tracing already wired in.
 
-Used by **100+ organisations**. Every project further down this repo runs on it.
+Used by **multiple organisations**. Every project further down this repo runs on it.
 
 ---
 

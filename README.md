@@ -15,7 +15,7 @@ technologies used, my role and contribution, and technical approach**.
 | | |
 |---|---|
 | [**How I work**](HOW_I_WORK.md) | Engineering principles, each with the decision in this repo that demonstrates it — and what it cost |
-| [**The platform**](platform/) | A multi-tenant agent platform used by 100+ organisations: [architecture](platform/architecture.md) · [one run end to end](platform/runtime-sequence.md) · [decision records](platform/decisions/) |
+| [**The platform**](platform/) | A multi-tenant agent platform used by multiple organisations: [architecture](platform/architecture.md) · [one run end to end](platform/runtime-sequence.md) · [decision records](platform/decisions/) |
 | [**Case studies**](case-studies/) | Three systems shipped under real constraints |
 | [**Reliability**](reliability/) | The last mile: what breaks, the patterns that handle it, and working code with 96 tests |
 
