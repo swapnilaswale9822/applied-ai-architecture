@@ -5,7 +5,7 @@ configure an agent — knowledge, tools, guardrails, workflow — through a stud
 platform compiles that into a running agent with retrieval, tool access, evaluation and
 tracing already wired in.
 
-**Used by 100+ organisations.** Every case study in this repo runs on it.
+**Used by multiple organisations.** Every case study in this repo runs on it.
 
 | | |
 |---|---|
