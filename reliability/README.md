@@ -16,7 +16,7 @@ Maturity: 🟢 production · 🔵 built and tested, not yet in production · ⚪
 |---|---|---|
 | [`resilience/`](resilience/) | Timeout budget · retry with full jitter · circuit breaker · bulkhead · fallback · load shedding | 🔵 |
 | [`durable_workflow/`](durable_workflow/) | Step checkpointing, lease janitor, kill-mid-run resume test | 🔵 |
-| [`evaluation-harness/`](evaluation-harness/) | Golden sets across four scenario classes, tiered gates, CI verdict, prod-failure → regression | 🟢 (mirrors the production service) |
+| [`evaluation-harness/`](evaluation-harness/) | Golden sets across four scenario classes, tiered gates, CI verdict, prod-failure → regression | 🔵 dependency-free port of the 🟢 Promptfoo-backed service |
 | [`governance-layer/`](governance-layer/) | Tenant-scoped retrieval, PII scrubbing, guardrails, tamper-evident audit log | 🟢 |
 | [`gateway/`](gateway/) | Kong declarative config · Cloudflare AI Gateway wiring | 🔵 |
 | [`k8s/`](k8s/) | Probes, autoscaling on queue depth, disruption budgets, graceful drain | 🔵 |

@@ -154,7 +154,7 @@ Specifically:
 - **Agent runtime** — guardrail hooks, tool dispatch, retrieval integration, streaming
 - **Workflow engine** — visual graph to executable runtime compiler
 - **Knowledge pipeline** — ingestion across formats, chunking strategy, hybrid retrieval
-- **Evaluation service** — Promptfoo-based quality gates, described in section 5
+- **Evaluation service** — Promptfoo-based quality gates, described in [Reliability](../reliability/)
 - **Studio UI** — the full React/TypeScript front end, ~370 components
 - **Production operations** — deployment, tuning, incident diagnosis
 
