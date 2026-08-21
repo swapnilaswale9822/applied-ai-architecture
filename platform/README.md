@@ -24,10 +24,43 @@ wiki, a CRM and an inbox. The systems it has to touch each have their own login.
 So work that is *conceptually* routine stays manual, because the only thing that could
 automate it is a person who holds all three of those in their head at once.
 
-The instinct is to build software for each case. That fails on economics rather than on
-capability: every workflow needs a project, the project takes months, and by the time it
-ships the procedure has moved on. Most workflows are never worth a project, which is exactly
-why they are still manual.
+### What that looks like concretely
+
+Take an accounts-payable clerk processing a supplier invoice. Ask three people in that team
+how it's done and you get three answers — not because anyone is wrong, but because each has
+absorbed a slightly different version of a procedure nobody ever wrote down.
+
+**The procedure is in their head.** Which invoices need a purchase-order match. When a price
+variance is small enough to pass and when it needs the finance manager. Which vendors are on
+payment hold this quarter. What to do when a line item doesn't reconcile. When to stop and
+ask someone. Years of accumulated judgement, none of it documented.
+
+**The information is scattered.** Vendor codes in the ERP. Tax codes in a spreadsheet someone
+maintains. Cost-centre mapping on a wiki page that may or may not be current. The contract
+terms in a PDF on a shared drive. Last quarter's decision about this exact vendor, in an email
+thread.
+
+**The systems each have their own login.** The mailbox the invoices arrive in. The ERP. The
+approval tool. The banking portal.
+
+The only thing that can currently do this job is a person holding all three at once — and
+that is exactly what the clerk is. That's why the work is still manual: not because any single
+step is hard, but because nothing else has the whole picture.
+
+### Why building software for it doesn't fix this
+
+The instinct is to commission an invoice-automation project. That fails on economics rather
+than on capability: it takes months, and by the time it ships the procedure has moved on —
+new vendors, a changed approval threshold, a tax rule updated.
+
+But the deeper problem is the one nobody counts. That same finance team has thirty other
+workflows shaped identically — expense approvals, vendor onboarding, month-end reconciliation,
+dunning, credit notes. Each has a procedure in someone's head, information across four
+systems, and its own logins. **Not one of them individually justifies a six-month project.**
+
+So the cost isn't the one workflow you failed to automate. It's that the threshold for
+automating anything is set so high that almost everything falls under it — and stays manual
+forever.
 
 ---
 
@@ -71,6 +104,18 @@ is not the person who can deploy it.
 
 That coupling is the actual reason internal automation projects stall. Splitting the three is
 what makes the platform useful rather than merely convenient.
+
+**Back to the invoice clerk.** Separated, the job stops being a project. The procedure gets
+written down once — including where it must stop and ask a human, which for that work is the
+GL-account decision, because it is accounting judgement rather than data extraction. The
+information becomes retrievable: vendor and tax codes looked up in the ERP because they have
+exactly one correct answer, contract terms retrieved semantically because they do not. The
+systems get connected once.
+
+And the thirty other workflows now cost a description each, not a project each — because they
+reuse the same connections, the same corpus, and the same governance. **That is the economic
+change.** Not that the first workflow gets cheaper, but that the thirtieth becomes possible at
+all.
 
 ---
 
