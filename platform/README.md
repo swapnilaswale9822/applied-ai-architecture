@@ -41,7 +41,7 @@ flowchart TB
     subgraph AGENT["An agent"]
         direction LR
         P["<b>Procedure</b><br/>how the work is done<br/>steps · rules · judgement<br/>what to escalate"]
-        K["<b>Knowledge</b><br/>what it needs to know<br/>documents · records<br/>past cases · policy"]
+        K["<b>Knowledge</b><br/>what it needs to know<br/>documents · policy · past cases<br/>+ this customer's own records"]
         C["<b>Capability</b><br/>what it can act on<br/>systems · APIs<br/>read and write"]
     end
     AGENT --> RUN["A running agent"]
@@ -61,7 +61,7 @@ follows from taking that seriously.
 | | What it captures | Who owns it | How often it changes |
 |---|---|---|---|
 | **Procedure** | The steps, decision rules, tone, and — most importantly — **where it must stop and ask a human** | The person who does the work today | Constantly |
-| **Knowledge** | The corpus it reasons over: documents, records, prior cases, policy. Retrieved per request, not memorised | A domain or content owner | Continuously |
+| **Knowledge** | Everything specific to *this* tenant — the document corpus it reasons over (policy, prior cases, product docs) **and** the structured records that make output theirs rather than generic (customer history, catalogue rows, entitlements). Retrieved per request, never memorised into the model | A domain or content owner | Continuously |
 | **Capability** | Tools it may invoke, scoped and permissioned. Read-heavy, write-narrow by default | Platform and security | Rarely |
 
 They are separated because **they are owned by different people and change at different
@@ -113,6 +113,12 @@ that exists as a script on someone's laptop.
 chunking that respects document structure, hybrid search, reranking. Grounding an answer in a
 retrieved source is what separates a system from a chatbot, and it is what makes an answer
 checkable afterwards.
+
+It covers two kinds of thing, and conflating them is a common design error. Unstructured
+material — policy, guidelines, prior cases — is chunked and retrieved semantically. Structured
+records — a customer's purchase history, a catalogue row, an entitlement — are looked up, not
+searched. Both are this tenant's own data and both belong in this layer, but a question with
+exactly one correct answer should never reach a similarity search.
 
 **Capability** connects a business system once — authentication, permissions, rate limits —
 and every agent inherits it. The alternative is each agent carrying its own integration code
